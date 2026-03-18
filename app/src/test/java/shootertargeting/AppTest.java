@@ -5,8 +5,6 @@ package shootertargeting;
 
 import org.junit.jupiter.api.Test;
 
-import shootertargeting.ShooterTargetingWithDrag;
-
 class AppTest {
     @Test void appHasAGreeting() {
         ShooterTargetingWithDrag classUnderTest = new ShooterTargetingWithDrag();

@@ -10,18 +10,21 @@ import org.apache.commons.math3.fitting.PolynomialCurveFitter;
 import org.apache.commons.math3.fitting.WeightedObservedPoints;
 
 public class ShooterTargetingWithDrag {
+    private final boolean plotcontours = false;
     private final double PI = 3.14159;
     private final double g = 9.8; // meters/second/second
-    private final double thetaDegrees = 60.0;
+    private final double thetaDegrees =60.0;
     private final double theta = thetaDegrees/360.0*2.0*PI;
-    private final double targetHeightInches = 72.0;
+    private final double targetHeightInches = 60.0;
     private final double inchesToMeters = 2.54/100.0;
     private final double targetHeightMeters = targetHeightInches * inchesToMeters;
     private final double shooterHeightInches = 15.0;
     private final double shooterHeightMeters = shooterHeightInches* inchesToMeters;
     private final double rimRadius = 47.0/2.0 * inchesToMeters;
     private final double flywheelCircumference = 4.0 * PI * inchesToMeters;
-    private final double rpmPerVolt = 473.0; // If we were operating in voltage control mode instead of velocity control.
+    private final double percentSpeedTransferred = 0.72; // The percent of the initial velocity that is transferred to the projectile from the wheel.
+    private final double rpmOffset = 750;
+    //private final double rpmPerVolt = 473.0; // If we were operating in voltage control mode instead of velocity control.
     double shooterToTargetY = targetHeightMeters - shooterHeightMeters;
     //double offsetToRim = 24 * inchesToMeters; // Unused. intended to check height of the projectile at the rim.
     double fudge = 4.0; // extra (inches) radius to account for imperfections
@@ -56,14 +59,14 @@ public class ShooterTargetingWithDrag {
             return distance;
         }
     }
-    public void runSimulations() {
+    public double[] runSimulations() {
         WeightedObservedPoints distanceToRpm = new WeightedObservedPoints();
         for (int i = 0; i < 81; i++) {
             contours[i] = String.format("%3.1f",-8.0 + i * 0.1);
         }
         for (double rpm = 1000; rpm <= 5000; rpm += 500) {
             
-            double initialVelocity = (rpm / 60.0) * flywheelCircumference;
+            double initialVelocity = ((rpm - rpmOffset)/ 60.0) * flywheelCircumference * percentSpeedTransferred;
 
             SimulationResult result = simulateWithDrag(
                 rpm,
@@ -95,15 +98,32 @@ public class ShooterTargetingWithDrag {
             double rpm = coeff[0] + coeff[1]*d + coeff[2]*d*d + coeff[3]*d*d*d;
             System.out.printf("Distance: %5.2f  RPM: %5.0f\n", d, rpm);
         }*/
-        for (int i = 0; i < 81; i++) {
+        double d = (9*12+9) * 2.54/100.0; // 9 feet 9 inches in meters
+        double rpm = coeff[0] + coeff[1]*d + coeff[2]*d*d + coeff[3]*d*d*d;
+        System.out.printf("Distance: %5.2f  RPM: %5.0f\n", d, rpm);      
+        if (plotcontours) {
+            for (int i = 0; i < 81; i++) {
             System.out.println(contours[i]);
+           }
         }
 
+        return coeff;
     }
 
     public static void main(String... args) {
         ShooterTargetingWithDrag simulation = new ShooterTargetingWithDrag();
-        simulation.runSimulations();
+        ShooterEmpiricalTargeting  empirical = new ShooterEmpiricalTargeting();
+        double[] simulationResults = simulation.runSimulations();
+        double[] empericalResults = empirical.fitCurve();
+        System.out.println("Distance(ft)   Simulation RPM    Empirical RPM   Difference");
+        for (int i = 0; i <= 17; i++) {
+            double inchesToMeters = 2.54/100.0;
+            double d = i * 12 * inchesToMeters;
+            double simRpm = simulationResults[0] + simulationResults[1]*d + simulationResults[2]*d*d + simulationResults[3]*d*d*d;
+            double empRpm = empericalResults[0] + empericalResults[1]*d + empericalResults[2]*d*d + empericalResults[3]*d*d*d;
+            System.out.printf("%12d: %10.0f %10.0f %10.0f\n", i, simRpm, empRpm, simRpm - empRpm);
+        }
+
         
        
         
